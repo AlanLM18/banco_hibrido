@@ -73,8 +73,7 @@ class SecureEncryptionService {
 
       const currentTime = Date.now();
       const timeDiff = currentTime - timestamp;
-      const MAX_AGE = 5 * 60 * 1000; // 5 minutos
-
+      const MAX_AGE = 5 * 60 * 1000;
       if (timeDiff > MAX_AGE) {
         throw new Error('Token expirado - posible ataque de replay');
       }
