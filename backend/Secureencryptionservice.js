@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 
-
 class SecureEncryptionService {
   constructor() {
     this.asymmetricAlgorithm = 'rsa';
@@ -10,7 +9,6 @@ class SecureEncryptionService {
     this.hashAlgorithm = 'sha256';
   }
 
-  
   generateKeyPair() {
     const { publicKey, privateKey } = crypto.generateKeyPairSync(this.asymmetricAlgorithm, {
       modulusLength: this.keySize,
@@ -35,17 +33,15 @@ class SecureEncryptionService {
 
   encrypt(data, recipientPublicKey) {
     try {
-      
       const symmetricKey = crypto.randomBytes(this.symmetricKeySize);
-      const iv = crypto.randomBytes(16);
-
+      const iv = crypto.randomBytes(12);
 
       const cipher = crypto.createCipheriv(this.symmetricAlgorithm, symmetricKey, iv);
       let encryptedData = cipher.update(data, 'utf8', 'base64');
       encryptedData += cipher.final('base64');
       const authTag = cipher.getAuthTag();
 
-   
+
       const encryptedSymmetricKey = crypto.publicEncrypt(
         {
           key: recipientPublicKey,
@@ -54,7 +50,6 @@ class SecureEncryptionService {
         },
         symmetricKey
       );
-
 
       const timestamp = Date.now();
 
@@ -76,7 +71,6 @@ class SecureEncryptionService {
     try {
       const { encryptedData, encryptedKey, iv, authTag, timestamp } = encryptedPackage;
 
-  
       const currentTime = Date.now();
       const timeDiff = currentTime - timestamp;
       const MAX_AGE = 5 * 60 * 1000; // 5 minutos
@@ -84,7 +78,6 @@ class SecureEncryptionService {
       if (timeDiff > MAX_AGE) {
         throw new Error('Token expirado - posible ataque de replay');
       }
-
 
       const symmetricKey = crypto.privateDecrypt(
         {
@@ -95,11 +88,12 @@ class SecureEncryptionService {
         Buffer.from(encryptedKey, 'base64')
       );
 
-
+      const ivBuffer = Buffer.from(iv, 'base64');
+      
       const decipher = crypto.createDecipheriv(
         this.symmetricAlgorithm,
         symmetricKey,
-        Buffer.from(iv, 'base64')
+        ivBuffer
       );
 
       decipher.setAuthTag(Buffer.from(authTag, 'base64'));
@@ -112,7 +106,6 @@ class SecureEncryptionService {
       throw new Error(`Error en descifrado: ${error.message}`);
     }
   }
-
 
   validateCardNumber(cardNumber) {
     const digits = cardNumber.replace(/\D/g, '');
