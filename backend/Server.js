@@ -46,8 +46,6 @@ app.use((req, res, next) => {
 const encryptionService = new SecureEncryptionService();
 const serverKeys = encryptionService.generateKeyPair();
 
-
-
 function normalizeExpiryDate(date) {
 
   const cleaned = date.replace(/\D/g, '');
