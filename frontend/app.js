@@ -1,7 +1,6 @@
-// Cliente de Cifrado
+
 let encryptionClient;
 
-// Elementos del DOM
 const paymentForm = document.getElementById('paymentForm');
 const submitBtn = document.getElementById('submitBtn');
 const processingIndicator = document.getElementById('processingIndicator');
@@ -11,23 +10,79 @@ const logContent = document.getElementById('logContent');
 const securityBadge = document.getElementById('securityBadge');
 const securityLayers = document.getElementById('securityLayers');
 
-/**
- * Agregar entrada al log de cifrado
- */
-function addLog(message, type = 'info') {
+
+function addLog(message, type = 'info', data = null) {
     const entry = document.createElement('p');
     entry.className = `log-entry log-${type}`;
     
     const timestamp = new Date().toLocaleTimeString();
-    entry.textContent = `[${timestamp}] ${message}`;
+    entry.innerHTML = `[${timestamp}] ${message}`;
+  
+    if (data) {
+        const dataDiv = document.createElement('div');
+        dataDiv.className = 'log-data';
+        dataDiv.style.marginLeft = '20px';
+        dataDiv.style.marginTop = '5px';
+        dataDiv.style.fontSize = '0.85em';
+        dataDiv.style.color = '#93c5fd';
+        dataDiv.style.fontFamily = 'monospace';
+        dataDiv.style.whiteSpace = 'pre-wrap';
+        dataDiv.style.wordBreak = 'break-all';
+        
+        if (typeof data === 'object') {
+            const preview = JSON.stringify(data, null, 2);
+            if (preview.length > 500) {
+                dataDiv.textContent = preview.substring(0, 500) + '...';
+            } else {
+                dataDiv.textContent = preview;
+            }
+        } else {
+            dataDiv.textContent = data;
+        }
+        
+        entry.appendChild(dataDiv);
+    }
     
     logContent.appendChild(entry);
     logContent.scrollTop = logContent.scrollHeight;
 }
 
-/**
- * Actualizar badge de seguridad
- */
+function logEncryptedData(label, encryptedPackage) {
+    addLog(` ${label}:`, 'info');
+    
+    const logDiv = document.createElement('div');
+    logDiv.className = 'log-data';
+    logDiv.style.marginLeft = '20px';
+    logDiv.style.marginTop = '5px';
+    logDiv.style.fontSize = '0.8em';
+    logDiv.style.fontFamily = 'monospace';
+    
+    logDiv.innerHTML = `
+        <div style="color: #fbbf24;"> Datos Cifrados (Base64):</div>
+        <div style="color: #93c5fd; margin-top: 5px;">
+            <strong>encryptedData:</strong> ${encryptedPackage.encryptedData.substring(0, 80)}...
+            <br><span style="color: #6b7280;">(${encryptedPackage.encryptedData.length} caracteres)</span>
+        </div>
+        <div style="color: #93c5fd; margin-top: 5px;">
+            <strong>encryptedKey:</strong> ${encryptedPackage.encryptedKey.substring(0, 80)}...
+            <br><span style="color: #6b7280;">(${encryptedPackage.encryptedKey.length} caracteres)</span>
+        </div>
+        <div style="color: #93c5fd; margin-top: 5px;">
+            <strong>iv:</strong> ${encryptedPackage.iv}
+        </div>
+        <div style="color: #93c5fd; margin-top: 5px;">
+            <strong>authTag:</strong> ${encryptedPackage.authTag}
+        </div>
+        <div style="color: #93c5fd; margin-top: 5px;">
+            <strong>timestamp:</strong> ${encryptedPackage.timestamp}
+        </div>
+    `;
+    
+    logContent.appendChild(logDiv);
+    logContent.scrollTop = logContent.scrollHeight;
+}
+
+
 function updateSecurityBadge(status, message) {
     const dot = securityBadge.querySelector('.status-dot');
     const text = securityBadge.querySelector('span:last-child');
@@ -41,37 +96,13 @@ function updateSecurityBadge(status, message) {
     text.textContent = message;
 }
 
-/**
- * Cargar información de seguridad
- */
-async function loadSecurityInfo() {
-    try {
-        const response = await fetch('http://localhost:3001/api/security-info');
-        const data = await response.json();
-        
-        securityLayers.innerHTML = data.layers
-            .map(layer => `<li>${layer}</li>`)
-            .join('');
-        
-        addLog('✓ Información de seguridad cargada', 'success');
-    } catch (error) {
-        addLog('⚠ Error cargando información de seguridad', 'warning');
-        securityLayers.innerHTML = '<li>⚠️ No se pudo cargar la información de seguridad</li>';
-    }
-}
 
-/**
- * Formatear número de tarjeta (agregar espacios)
- */
 function formatCardNumber(input) {
     let value = input.value.replace(/\s/g, '');
     let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
     input.value = formattedValue;
 }
 
-/**
- * Formatear fecha de expiración (agregar /)
- */
 function formatExpiryDate(input) {
     let value = input.value.replace(/\D/g, '');
     if (value.length >= 2) {
@@ -80,57 +111,44 @@ function formatExpiryDate(input) {
     input.value = value;
 }
 
-/**
- * Inicializar la aplicación
- */
+
 async function initializeApp() {
-    addLog('🔄 Inicializando sistema de pago seguro...', 'info');
+
+    if (securityLayers && securityLayers.parentElement) {
+        securityLayers.parentElement.style.display = 'none';
+    }
     
     try {
-        // Inicializar cliente de cifrado
+
         encryptionClient = new ClientEncryptionService();
-        addLog('🔑 Generando claves RSA del cliente...', 'info');
         
         const initialized = await encryptionClient.initialize();
         
         if (initialized) {
-            addLog('✓ Claves del cliente generadas (RSA-2048)', 'success');
-            addLog('✓ Clave pública del servidor obtenida', 'success');
-            addLog('🔒 Canal de cifrado establecido', 'success');
             
             updateSecurityBadge('active', 'Cifrado activo - Conexión segura');
-            
-            // Habilitar formulario
             submitBtn.disabled = false;
         } else {
             throw new Error('No se pudo inicializar el cifrado');
         }
         
-        // Cargar información de seguridad
-        await loadSecurityInfo();
-        
     } catch (error) {
-        addLog('❌ Error: ' + error.message, 'error');
+        addLog('Error: ' + error.message, 'error');
         updateSecurityBadge('error', 'Error en la conexión segura');
         submitBtn.disabled = true;
     }
 }
 
-/**
- * Procesar el formulario de pago
- */
+
 async function handlePaymentSubmit(e) {
     e.preventDefault();
     
-    // Deshabilitar botón y mostrar indicador
     submitBtn.disabled = true;
     processingIndicator.style.display = 'block';
     resultContainer.style.display = 'none';
     
-    addLog('📤 Iniciando procesamiento de pago...', 'info');
     
     try {
-        // Recopilar datos del formulario
         const formData = {
             cardNumber: document.getElementById('cardNumber').value.replace(/\s/g, ''),
             cardHolder: document.getElementById('cardHolder').value,
@@ -139,26 +157,28 @@ async function handlePaymentSubmit(e) {
             amount: parseFloat(document.getElementById('amount').value)
         };
         
-        addLog('🔒 Cifrando datos con AES-256-GCM...', 'info');
+        addLog('Datos del formulario recopilados', 'info');
+        addLog('Tarjeta: **** **** **** ' + formData.cardNumber.slice(-4), 'info');
+        addLog('Titular: ' + formData.cardHolder, 'info');
+        addLog('Monto: $' + formData.amount.toFixed(2), 'info');
         
-        // Cifrar datos del pago
+        
         const encryptedPayment = await encryptionClient.encryptForServer(
             JSON.stringify(formData)
         );
         
-        addLog('✓ Datos cifrados exitosamente', 'success');
-        addLog('🔐 Cifrando clave AES con RSA-2048...', 'info');
-        addLog('✓ Clave AES cifrada', 'success');
+    
+        logEncryptedData('Paquete Cifrado Generado', encryptedPayment);
         
-        // Preparar datos para enviar
+
+        
+
         const payload = {
             encryptedPayment: encryptedPayment,
             clientPublicKey: encryptionClient.getClientPublicKey()
         };
+
         
-        addLog('📡 Enviando datos cifrados al servidor...', 'info');
-        
-        // Enviar al backend
         const response = await fetch('http://localhost:3001/api/process-payment', {
             method: 'POST',
             headers: {
@@ -172,27 +192,39 @@ async function handlePaymentSubmit(e) {
         }
         
         const result = await response.json();
+
         
-        addLog('✓ Respuesta recibida del servidor', 'success');
-        addLog('🔓 Descifrando respuesta...', 'info');
+        addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        addLog('DESCIFRADO DE RESPUESTA', 'warning');
+   
+        logEncryptedData('Respuesta Cifrada del Servidor', result.data);
         
-        // Descifrar respuesta
+
+        
         const decryptedResponse = await encryptionClient.decryptFromServer(result.data);
         const responseData = JSON.parse(decryptedResponse);
         
-        addLog('✓ Respuesta descifrada exitosamente', 'success');
         
-        // Mostrar resultado
+        addLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        addLog('RESULTADO DE LA TRANSACCIÓN', 'warning');
+        
+        if (responseData.success) {
+            addLog('Estado: ' + responseData.transaction.status, 'success');
+            addLog('Token: ' + responseData.transaction.token, 'success');
+            addLog('Monto: $' + responseData.transaction.amount.toFixed(2), 'success');
+            addLog('Pago procesado exitosamente', 'success');
+        }
+        
+
         displayResult(responseData);
         
-        // Limpiar formulario si fue exitoso
+
         if (responseData.success) {
             paymentForm.reset();
-            addLog('🎉 Pago procesado exitosamente', 'success');
         }
         
     } catch (error) {
-        addLog('❌ Error: ' + error.message, 'error');
+        addLog(' Error: ' + error.message, 'error');
         displayError(error.message);
     } finally {
         submitBtn.disabled = false;
@@ -200,9 +232,7 @@ async function handlePaymentSubmit(e) {
     }
 }
 
-/**
- * Mostrar resultado exitoso
- */
+
 function displayResult(data) {
     resultContainer.style.display = 'block';
     
@@ -210,38 +240,33 @@ function displayResult(data) {
         resultContent.innerHTML = `
             <div class="result-success">
                 <div class="result-title">
-                    <span>✅</span>
                     <span>${data.message}</span>
                 </div>
                 
                 <div class="result-details">
                     <div class="detail-row">
-                        <span class="detail-label">🎫 Token de Transacción:</span>
+                        <span class="detail-label">Token de Transacción:</span>
                         <span class="detail-value">${data.transaction.token}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">💵 Monto:</span>
+                        <span class="detail-label">Monto:</span>
                         <span class="detail-value">$${data.transaction.amount.toFixed(2)} ${data.transaction.currency}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">💳 Tarjeta:</span>
+                        <span class="detail-label">Tarjeta:</span>
                         <span class="detail-value">**** **** **** ${data.transaction.cardLast4}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">👤 Titular:</span>
+                        <span class="detail-label">Titular:</span>
                         <span class="detail-value">${data.transaction.cardHolder}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">✅ Estado:</span>
+                        <span class="detail-label"Estado:</span>
                         <span class="detail-value">${data.transaction.status}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">🕐 Fecha:</span>
+                        <span class="detail-label">Fecha:</span>
                         <span class="detail-value">${new Date(data.transaction.timestamp).toLocaleString()}</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">🔐 Cifrado:</span>
-                        <span class="detail-value">${data.security.algorithm}</span>
                     </div>
                 </div>
             </div>
@@ -250,20 +275,16 @@ function displayResult(data) {
         displayError(data.error || 'Error desconocido');
     }
     
-    // Scroll al resultado
     resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-/**
- * Mostrar error
- */
+
 function displayError(message) {
     resultContainer.style.display = 'block';
     
     resultContent.innerHTML = `
         <div class="result-error">
             <div class="result-title">
-                <span>❌</span>
                 <span>Error en el Pago</span>
             </div>
             <p style="margin-top: 10px; color: #991b1b;">
@@ -278,11 +299,6 @@ function displayError(message) {
     resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-/**
- * Event Listeners
- */
-
-// Formateo automático de campos
 document.getElementById('cardNumber').addEventListener('input', function() {
     formatCardNumber(this);
 });
@@ -291,18 +307,15 @@ document.getElementById('expiryDate').addEventListener('input', function() {
     formatExpiryDate(this);
 });
 
-// Prevenir caracteres no numéricos en CVV
 document.getElementById('cvv').addEventListener('input', function() {
     this.value = this.value.replace(/\D/g, '');
 });
 
-// Solo mayúsculas en titular
 document.getElementById('cardHolder').addEventListener('input', function() {
     this.value = this.value.toUpperCase();
 });
 
-// Submit del formulario
 paymentForm.addEventListener('submit', handlePaymentSubmit);
 
-// Inicializar al cargar la página
+
 document.addEventListener('DOMContentLoaded', initializeApp);
